@@ -1,0 +1,197 @@
+<html>
+<head>
+	<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+	<meta content="utf-8" http-equiv="encoding">
+	<title>Calculator</title>
+
+	<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+	<script type="text/javascript" src="https://www.google.com/jsapi"></script>
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+</head>
+<body>
+	<form class="form-inline">
+		<div class="form-group">
+			<label for="buyprice">buyprice</label>
+			<input type="text" class="form-control" id="buyprice">
+		</div>
+
+		<div class="form-group">
+			<label for="quantity">quantity</label>
+			<input type="text" class="form-control" id="quantity">
+		</div>
+
+		<select class="form-control" id="option" onchange="reEstimate()">
+  			<option>Cash</option>
+		    <option>E-Margin</option>
+            <option>Intraday</option>
+            <option>Cover</option>
+            <option>Encash</option>
+		</select>
+		<button type="button" class="btn btn-primary" id="calculate">Calculate</button>		
+	</form>
+
+	<form class="form-inline">
+		<div class="form-group">
+			<label for="quantity">Change</label>
+			<input type="text" class="form-control" id="change">
+		</div>
+
+		<div class="form-group">
+			<label for="quantity">Step</label>
+			<input type="text" class="form-control" id="step">
+		</div>
+	</form>
+	<h3 id="tradedvalue"></h3>
+	<h3 id="brokerage"></h3>
+	<h3 id="breakeven"></h3>
+	<div id="chart_div"></div>
+
+<script type="text/javascript">
+
+	google.load('visualization', '1', {packages: ['corechart', 'line']});
+	//google.setOnLoadCallback(drawCurveTypes);
+
+	function doEstimate() {
+		var bp = document.getElementById("buyprice").value;
+		var qt = document.getElementById("quantity").value;
+		var opt = document.getElementById("option");
+		var tv;
+		opt = opt.options[opt.selectedIndex].text;
+
+		bp = parseFloat(bp)
+		qt = parseFloat(qt)
+		
+		if (isNaN(bp)) {
+			document.getElementById("tradedvalue").innerHTML = "Invalid buy price"; 
+			document.getElementById("brokerage").innerHTML = "";
+		} else if (isNaN(qt)){
+			document.getElementById("tradedvalue").innerHTML = "Invalid quantity";
+			document.getElementById("brokerage").innerHTML = "";
+		} else {
+			tv = bp*qt;
+			document.getElementById("tradedvalue").innerHTML = "Total traded value is " + tv.toString() + " Rs with " + opt;
+			document.getElementById("brokerage").innerHTML = "Brokerage and tax at buying is " + calcBuyBrok(tv, opt);
+		}
+
+		drawChart(bp, qt, opt);
+	};
+
+	document.getElementById("calculate").onclick = function () { 
+		doEstimate();
+	};
+
+	function reEstimate() {
+		doEstimate();
+	};
+
+	function drawChart(bp, n, opt) {
+
+		var pr = getPriceRange(bp, 5, 0.1);
+		var ar = getProfit(pr, bp, n);
+		var nb = getNetBrokrage(pr, bp, n, opt);
+		var data = new google.visualization.DataTable();
+		var datarows = new Array(pr.length);
+
+		for (var i=0; i<pr.length; i++) {
+			datarows[i] = [pr[i], ar[i], nb[i], ar[i]-nb[i]];
+		}
+		data.addColumn('number', 'sellprice');
+		data.addColumn('number', 'profit');
+		data.addColumn('number', 'net-brokerage');
+		data.addColumn('number', 'net-profit');
+		data.addRows(datarows);
+
+		var options = {
+		'height':400,
+        hAxis: {
+          title: 'Sell Price'
+        },
+        vAxis: {
+          title: 'Profit'
+        },
+        series: {
+          1: {curveType: 'function'}
+        },
+		explorer: {
+			maxZoomOut:2,
+			keepInBounds: true
+		},
+		animation: {
+			"startup": true
+		}
+      };
+
+      var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+      chart.draw(data, options);
+		
+	};
+
+	function calcBuyBrok(tv, opt) {
+		
+		switch (opt) {
+			case "Cash":
+			case "E-Margin":
+				return (tv*(0.5 + 0.1 + 0.01 + 0.00325))/100;
+			case "Intraday":
+			case "Cover":
+				return (tv*(0.05 + 0 + 0.002 + 0.00325))/100;
+			case "Encash":
+				return (tv*(1 + 0.1 + 0.01 + 0.00325))/100;
+		}
+	};
+
+	function calcSellBrok(tv, opt) {
+
+		switch(opt) {			
+			case "Cash":
+			case "E-Margin":
+				return (tv*(0.5 + 0.1 + 0.01 + 0.00325))/100;
+			case "Intraday":
+			case "Cover":
+				return (tv*(0.05 + 0.025 + 0.002 + 0.00325))/100;
+			case "Encash":
+				return (tv*(1 + 0.1 + 0.01 + 0.00325))/100;
+		}
+	};
+
+	function getPriceRange(sp, chg, step) {
+
+		var d = Math.round(sp * chg / 100);
+		var r = 2*d;
+		var n = Math.round(r/step);
+		var pr = new Array(n);
+		var lb = sp-d;
+		pr[0] = lb;
+		for (var i=1; i < n; i++) {
+			pr[i] = Math.round((pr[i-1] + step)*100)/100;
+		}
+		return pr;
+	};
+
+	function getProfit(pr, bp, n) {
+
+		var arr = new Array(pr.length);
+
+		for (var i=0; i<pr.length; i++) {
+			arr[i] = Math.round((pr[i]-bp)*n*100)/100;
+		}
+
+		return arr;
+	};
+
+	function getNetBrokrage(pr, bp, n, opt) {
+
+		var nb = new Array(pr.length);
+		var tvb, tvs;
+		var bb = calcBuyBrok(bp*n, opt)
+		for (var i=0; i<pr.length; i++) {
+			tvs = pr[i]*n
+			nb[i] =  bb + calcSellBrok(tvs, opt);
+		}
+
+		return nb;
+	}
+</script>	
+</body>
+</html>
