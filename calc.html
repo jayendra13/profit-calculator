@@ -103,7 +103,8 @@
 		data.addRows(datarows);
 
 		var options = {
-		'height':400,
+		height: 400,
+		width: 1200,
         hAxis: {
           title: 'Sell Price'
         },
@@ -111,7 +112,8 @@
           title: 'Profit'
         },
         series: {
-          1: {curveType: 'function'}
+          1: {curveType: 'function',
+			pointShape: 'circle'}
         },
 		explorer: {
 			maxZoomOut:2,
@@ -119,7 +121,9 @@
 		},
 		animation: {
 			"startup": true
-		}
+		},
+		crosshair: { trigger: 'both' },
+		pointSize: 2
       };
 
       var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
